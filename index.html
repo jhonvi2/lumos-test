@@ -16,8 +16,24 @@
     <p id="transcript"></p>
 
     <script>
-        // CAMBIA ESTO POR LA IP DE TU PC (El falso ESP32)
-        const IP_ESP32 = "https://tinderbox-encode-playmaker.ngrok-free.dev"; 
+      // CAMBIA ESTO POR TU URL DE NGROK ACTUAL
+const IP_ESP32 = "https://tinderbox-encode-playmaker.ngrok-free.dev"; 
+
+// ... (resto del código igual hasta llegar al if) ...
+
+if (transcript.includes("lumos")) {
+    document.body.style.backgroundColor = "#fff";
+    document.body.style.color = "#000";
+    
+    // Petición con el truco para saltar la advertencia de Ngrok
+    fetch(`${IP_ESP32}/lumos`, {
+        headers: {
+            "ngrok-skip-browser-warning": "true"
+        }
+    })
+    .then(response => console.log("Orden enviada al ESP32"))
+    .catch(error => console.error("Error de red:", error));
+}
 
         let wakeLock = null;
 
