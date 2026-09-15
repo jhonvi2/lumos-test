@@ -5,62 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Micrófono Hogwarts</title>
     <style>
-        body { background-color: #111; color: white; font-family: sans-serif; text-align: center; padding: 50px; }
-        #status { color: #aaa; }
+        body { background-color: #111; color: white; font-family: sans-serif; text-align: center; padding: 50px; transition: 0.5s; }
+        #status { color: #aaa; margin-top: 20px; font-size: 1.2em; }
         .listening { color: #4CAF50; font-weight: bold; }
+        button { padding: 15px 30px; font-size: 1.2em; background-color: #4CAF50; color: white; border: none; border-radius: 10px; cursor: pointer; margin-bottom: 20px;}
     </style>
 </head>
 <body>
     <h1>Sala Común</h1>
-    <p id="status">Iniciando magia...</p>
+    <button id="btn-start">Toca para activar la Magia</button>
+    <p id="status">Esperando...</p>
     <p id="transcript"></p>
 
     <script>
-      // CAMBIA ESTO POR TU URL DE NGROK ACTUAL
-const IP_ESP32 = "https://tinderbox-encode-playmaker.ngrok-free.dev"; 
-
-// ... (resto del código igual hasta llegar al if) ...
-
-if (transcript.includes("lumos")) {
-    document.body.style.backgroundColor = "#fff";
-    document.body.style.color = "#000";
-    
-    // Petición con el truco para saltar la advertencia de Ngrok
-    fetch(`${IP_ESP32}/lumos`, {
-        headers: {
-            "ngrok-skip-browser-warning": "true"
-        }
-    })
-    .then(response => console.log("Orden enviada al ESP32"))
-    .catch(error => console.error("Error de red:", error));
-}
+        // TU URL DE NGROK
+        const IP_ESP32 = "https://tinderbox-encode-playmaker.ngrok-free.dev"; 
 
         let wakeLock = null;
+        const statusEl = document.getElementById('status');
+        const transcriptEl = document.getElementById('transcript');
+        const btnStart = document.getElementById('btn-start');
 
-        // 1. Evitar que la pantalla se apague (Wake Lock API)
-        async function keepScreenOn() {
-            try {
-                wakeLock = await navigator.wakeLock.request('screen');
-                console.log('Pantalla bloqueada encendida');
-            } catch (err) {
-                console.error(`${err.name}, ${err.message}`);
-            }
-        }
-        keepScreenOn();
-
-        // 2. Configurar el reconocimiento de voz continuo
+        // Configurar el reconocimiento de voz
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
         
         recognition.lang = 'es-ES';
-        recognition.continuous = true; // Que no pare al terminar una frase
+        recognition.continuous = true; 
         recognition.interimResults = false;
-
-        const statusEl = document.getElementById('status');
-        const transcriptEl = document.getElementById('transcript');
 
         recognition.onstart = function() {
             statusEl.innerHTML = "<span class='listening'>Escuchando hechizos...</span>";
+            btnStart.style.display = "none"; // Ocultar botón al escuchar
         };
 
         recognition.onresult = function(event) {
@@ -68,31 +44,36 @@ if (transcript.includes("lumos")) {
             const transcript = event.results[current][0].transcript.toLowerCase().trim();
             transcriptEl.innerText = "Has dicho: " + transcript;
 
-            // Buscar la palabra clave
             if (transcript.includes("lumos")) {
                 document.body.style.backgroundColor = "#fff";
                 document.body.style.color = "#000";
+                statusEl.innerText = "Enviando hechizo..."; 
                 
-                // Enviar la petición al "ESP32"
-                fetch(`${IP_ESP32}/lumos`)
-                    .then(response => console.log("Orden enviada al ESP32"))
-                    .catch(error => console.error("Error de red:", error));
+                fetch(`${IP_ESP32}/lumos`, {
+                    method: 'GET',
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                })
+                .then(response => {
+                    if(response.ok) statusEl.innerText = "¡Luz encendida con éxito!";
+                    else statusEl.innerText = "Error HTTP: " + response.status;
+                })
+                .catch(error => statusEl.innerText = "Fallo de red: " + error.message);
             }
         };
 
-        // 3. El truco para que NUNCA deje de escuchar
         recognition.onend = function() {
-            statusEl.innerText = "Reiniciando escucha...";
-            // Si se corta por silencio, lo volvemos a arrancar inmediatamente
+            // Si se corta, volvemos a arrancar
             setTimeout(() => recognition.start(), 100); 
         };
 
-        recognition.onerror = function(event) {
-            console.error("Error de voz: ", event.error);
-        };
-
-        // Arrancar
-        recognition.start();
+        // Arrancar SOLO cuando se pulsa el botón
+        btnStart.addEventListener('click', async () => {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+            } catch (err) { console.error("Wake Lock falló"); }
+            
+            recognition.start();
+        });
     </script>
 </body>
 </html>
